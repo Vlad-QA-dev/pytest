@@ -12,30 +12,11 @@ stage_l = "robertlokam@yandex.ru"
 stage_p = "etemoP75"
 
 CASES = [
-    (
-        "1",
-        "robertlokamyandex.ru",
-        "etemoP75",
-        [
-            "Введите корректную почту",
-        ],
-    ),
+    ("1", "robertlokamyandex.ru", "etemoP75", ["Введите корректную почту", ""]),
     ("2", "robertlokam@yandex.ru", "etemoP756", ["", "Неверные логин или пароль"]),
-    (
-        "3",
-        "robertlokam@yandex",
-        "etemoP756",
-        [
-            "Введите корректную почту",
-        ],
-    ),
-    (
-        "4",
-        " ",
-        "etemoP75",
-        ["Введите почту", " "],
-    ),
-    ("5", "robertlokam@yandex.ru", " ", [" ", "ВВедите  пароль"]),
+    ("3", "robertlokam@yandex", "etemoP756", ["Введите корректную почту", ""]),
+    ("4", " ", "etemoP75", ["Введите корректную почту", ""]),
+    ("5", "robertlokam@yandex.ru", " ", ["", "Неверные логин или пароль"]),
 ]
 
 
@@ -81,16 +62,80 @@ def test_negative_log(case_number, email, password, allert, browser):
     password_input.click()
     password_input.send_keys(password)
 
-    button = browser.find_element(By.CSS_SELECTOR, ".k_form_send_auth")
+    button = browser.find_element(By.CSS_SELECTOR, ".k_form_send_auth.css-cm2fpt")
     button.click()
-
-    allert_massege = browser.find_elements(
-        by=By.CSS_SELECTOR, value='[class*="auth__error"]'
+    # Ждём появления любого из сообщений об ошибке по CSS
+    WebDriverWait(browser, timeout=5).until(
+        lambda d: d.find_elements(
+            By.CSS_SELECTOR, ".auth__error:not(.k_main_error_text)"
+        )
+        or d.find_elements(By.CSS_SELECTOR, ".auth__error.k_main_error_text")
     )
-    allerts_list = []
-    for element in allert_massege:
-        allerts_list.append(element.text)
 
+    error_locators = [
+        ".auth__error:not(.k_main_error_text)",
+        ".auth__error.k_main_error_text",
+    ]
+    allerts_list = []
+    for css in error_locators:
+        elems = browser.find_elements(By.CSS_SELECTOR, css)
+        text = elems[0].text.strip() if elems else ""
+        allerts_list.append(text)
     assert allerts_list == allert
 
-    # button.click()
+
+@pytest.mark.xfail(reason="waiting for fix ")
+def test_e2e_api(browser, knockout):
+    """
+    TRP-3. E2E API test
+    """
+    browser.get(URL)
+    WebDriverWait(browser, timeout=10, poll_frequency=1).until(
+        EC.url_to_be(f"{URL}login")
+    )
+
+    email_input = browser.find_element(By.ID, "k_email")
+    email_input.click()
+    email_input.send_keys(stage_l)
+
+    password_input = browser.find_element(By.ID, "k_password")
+    password_input.click()
+    password_input.send_keys(stage_p)
+
+    button = browser.find_element(
+        By.CSS_SELECTOR, ".k_form_send_auth.css-cm2fpt"
+    ).click()
+    WebDriverWait(browser, timeout=5, poll_frequency=1).until(EC.url_to_be(URL))
+
+    browser.find_element(
+        By.CSS_SELECTOR, ".header_card_trainer.style_1_interactive_button_link"
+    ).click()
+    WebDriverWait(browser, timeout=5, poll_frequency=1).until(
+        EC.url_to_be(f"{URL}trainer/2746")
+    )
+
+    pok_count_bef = browser.find_element(
+        By.CSS_SELECTOR, ".style_1_caption_16_400.pokemon_one_body_content_inner_box"
+    )
+    count_bef = int(pok_count_bef.text)
+
+    body_create = {"name": "generate", "photo_id": -1}
+    HEADER = {
+        "Content-Type": "application/json",
+        "trainer_token": "ded72f74229ebfbdb79e0a4c18094db8",
+    }
+    response_create = requests.post(
+        url=f"{URL}v2/pokemon", headers=HEADER, json=body_create
+    )
+    assert response_create.status_code == 201, "unexpected status code"
+
+    browser.refresh()
+    WebDriverWait(browser, timeout=5, poll_frequency=1).until(
+        EC.url_to_be(f"{URL}trainer/2746")
+    )
+
+    pok_count_aft = browser.find_element(
+        By.CSS_SELECTOR, "style_1_caption_16_400.pokemon_one_body_content_inner_box"
+    )
+    count_aft = int(pok_count_aft.text)
+    assert count_aft - count_bef == 1

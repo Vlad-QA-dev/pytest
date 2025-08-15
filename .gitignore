@@ -1,0 +1,25 @@
+# Mac system files
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VSCode settings
+.vscode/
+
+# Virtual environments
+venv/
+.venv/
+
+# Allure results
+allure-results/
+my_allure_results/
+
+# Pytest cache
+.pytest_cache/
+
+# Other local folders
+info/
